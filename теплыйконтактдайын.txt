@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Теплый Контакт — Волонтёры и пожилые рядом</title>
+
+<!-- Leaflet (карта) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<style>
+  :root{
+    --bg:#0b1220;
+    --card:#111a2e;
+    --muted:#94a3b8;
+    --text:#e6eefc;
+    --accent:#6ee7b7;
+    --accent-2:#60a5fa;
+    --danger:#f87171;
+    --warning:#fbbf24;
+    --ok:#34d399;
+    --ring: rgba(96,165,250,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:linear-gradient(180deg,#0b1220 0%,#0f172a 100%);
+    color:var(--text);
+  }
+  header{
+    position:sticky; top:0; z-index:10;
+    backdrop-filter: blur(10px);
+    background:rgba(11,18,32,.7);
+    border-bottom:1px solid #1f2a44;
+  }
+  .wrap{max-width:1100px; margin:0 auto; padding:16px}
+  .brand{display:flex; align-items:center; gap:12px}
+  .logo{
+    width:40px; height:40px; border-radius:12px;
+    background: radial-gradient(circle at 30% 30%, var(--accent), var(--accent-2));
+    box-shadow: 0 8px 24px rgba(96,165,250,.35), inset 0 0 22px rgba(110,231,183,.35);
+  }
+  h1{font-size:18px; margin:0}
+  .sub{color:var(--muted); font-size:12px}
+
+  .grid{
+    display:grid; gap:16px; padding:16px;
+    grid-template-columns: 1.4fr .6fr;
+  }
+  @media (max-width: 980px){
+    .grid{grid-template-columns: 1fr}
+  }
+
+  .card{
+    background:var(--card);
+    border:1px solid #1f2a44;
+    border-radius:18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    overflow:hidden;
+  }
+  .card h2{
+    font-size:16px; margin:0; padding:14px 16px;
+    border-bottom:1px solid #1f2a44;
+    background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);
+  }
+  .card .body{padding:16px}
+  .row{display:grid; gap:10px; grid-template-columns: 1fr 1fr}
+  .row-3{display:grid; gap:10px; grid-template-columns: 1fr 1fr 1fr}
+  .row > *, .row-3 > *{min-width:0}
+  @media (max-width:700px){ .row, .row-3{grid-template-columns:1fr} }
+
+  label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px}
+  input, select, textarea{
+    width:100%; background:#0b1327; color:var(--text);
+    border:1px solid #1f2a44; border-radius:12px; padding:10px 12px;
+    outline:none; transition:.2s border,.2s box-shadow;
+  }
+  input:focus, select:focus, textarea:focus{
+    border-color: var(--accent-2);
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+  textarea{min-height:90px; resize:vertical}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    gap:8px; padding:10px 14px; border-radius:12px;
+    border:1px solid #1f2a44; background:#0e1a33; color:var(--text);
+    cursor:pointer; transition:.2s transform,.2s background,.2s border;
+    text-decoration:none; font-weight:600;
+  }
+  .btn:hover{transform:translateY(-1px); background:#122045}
+  .btn.primary{background:linear-gradient(90deg,var(--accent-2),#22d3ee); border-color:transparent; color:#041019}
+  .btn.warn{background:linear-gradient(90deg,#f59e0b,#fbbf24); color:#1a1204; border-color:transparent}
+  .btn.ghost{background:transparent}
+  .btn.block{width:100%}
+  .hint{font-size:12px; color:var(--muted)}
+
+  /* Карта + списки */
+  #map{width:100%; height:420px}
+  .list{display:grid; gap:10px; margin-top:8px}
+  .req{
+    background:#0b1327; border:1px solid #1f2a44; border-radius:14px; padding:12px;
+    display:grid; gap:6px;
+  }
+  .status{display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; font-weight:700}
+  .s-open{background:rgba(96,165,250,.2); color:#bfdbfe; border:1px solid #334155}
+  .s-assigned{background:rgba(250,204,21,.2); color:#fde68a; border:1px solid #4b5563}
+  .s-done{background:rgba(34,197,94,.2); color:#bbf7d0; border:1px solid #374151}
+
+  .tabs{display:flex; gap:6px; padding:10px; background:#0d1630; border-bottom:1px solid #1f2a44}
+  .tab{padding:8px 12px; border-radius:10px; cursor:pointer; user-select:none; color:var(--muted)}
+  .tab.active{color:var(--text); background:#122045}
+
+  .pill{display:inline-flex; gap:8px; align-items:center; font-size:12px; padding:6px 10px; border-radius:999px; background:#0b1327; border:1px solid #1f2a44}
+  .badges{display:flex; flex-wrap:wrap; gap:8px}
+
+  .footer-note{font-size:12px; color:var(--muted); padding:10px 16px}
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Теплый Контакт</h1>
+          <div class="sub">Простые просьбы о помощи для пожилых людей • Верифицированные волонтёры рядом</div>
+        </div>
+      </div>
+    </div>
+    <div class="tabs wrap">
+      <div class="tab active" data-tab="senior">Заявка (Пожилой/Соц.работник)</div>
+      <div class="tab" data-tab="volunteer">Я волонтёр</div>
+      <div class="tab" data-tab="map">Карта и все заявки</div>
+      <div style="margin-left:auto" class="badges">
+        <span class="pill">Демо • офлайн</span>
+        <span class="pill">Данные хранятся в браузере</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+
+      <!-- LEFT: main content panes -->
+      <section class="card" id="pane-senior">
+        <h2>Оставить простую заявку на помощь</h2>
+        <div class="body">
+          <form id="requestForm">
+            <div class="row">
+              <div>
+                <label>Имя (можно псевдоним)</label>
+                <input type="text" id="req_name" placeholder="Напр. Анна П." />
+              </div>
+              <div>
+                <label>Контакт для связи (телефон/WhatsApp)</label>
+                <input type="text" id="req_contact" placeholder="+7 7xx xxx xx xx"/>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label>Тип помощи</label>
+                <select id="req_type">
+                  <option value="shopping">Сходить в магазин / аптека</option>
+                  <option value="tech">Помочь с телефоном/техникой</option>
+                  <option value="talk">Просто поговорить / сопровождение</option>
+                  <option value="house">Бытовая мелкая помощь</option>
+                </select>
+              </div>
+              <div>
+                <label>Приоритет</label>
+                <select id="req_priority">
+                  <option value="обычно">Обычно</option>
+                  <option value="сегодня">Сегодня</option>
+                  <option value="срочно">Срочно</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label>Описание</label>
+              <textarea id="req_desc" placeholder="Коротко опишите, что нужно. Без передачи платежных данных и кодов!"></textarea>
+            </div>
+
+            <div class="row">
+              <div>
+                <label>Адрес (улица, дом, подъезд — без квартиры)</label>
+                <input type="text" id="req_address" placeholder="г. Кызылорда, ул. ..., д. ..." />
+                <div class="hint">Точную квартиру/код домофона сообщайте только уже принятому волонтёру.</div>
+              </div>
+              <div>
+                <label>Локация</label>
+                <div class="row">
+                  <div><input type="text" id="req_lat" placeholder="Широта" /></div>
+                  <div><input type="text" id="req_lng" placeholder="Долгота" /></div>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:8px">
+                  <button type="button" class="btn" id="btnGeo">Определить по GPS</button>
+                  <button type="button" class="btn ghost" id="btnPasteMapHint">Как взять из карты?</button>
+                </div>
+                <div class="hint" id="geoHint"></div>
+              </div>
+            </div>
+
+            <div style="margin:10px 0">
+              <label style="display:flex; align-items:center; gap:8px">
+                <input type="checkbox" id="req_consent" />
+                Согласен(а) на передачу контакта одному принятому волонтёру.
+              </label>
+            </div>
+
+            <div class="row">
+              <div>
+                <button class="btn primary block" type="submit">Опубликовать заявку</button>
+              </div>
+              <div>
+                <button class="btn block" type="button" id="btnReset">Очистить форму</button>
+              </div>
+            </div>
+          </form>
+
+          <div style="margin-top:14px" class="hint">
+            Советы безопасности: не отправляйте деньги и коды; встречайтесь в подъезде/у квартиры только когда это удобно; сообщайте детали только после «Принятия» заявки волонтёром. В экстренных случаях — 112.
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="pane-volunteer" style="display:none">
+        <h2>Кабинет волонтёра</h2>
+        <div class="body">
+          <form id="volForm">
+            <div class="row">
+              <div>
+                <label>Ваше имя</label>
+                <input type="text" id="vol_name" placeholder="Напр. Айдос К." />
+              </div>
+              <div>
+                <label>Контакт (телефон/WhatsApp)</label>
+                <input type="text" id="vol_contact" placeholder="+7 7xx xxx xx xx" />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label>Ваше местоположение</label>
+                <div class="row">
+                  <div><input type="text" id="vol_lat" placeholder="Широта" /></div>
+                  <div><input type="text" id="vol_lng" placeholder="Долгота" /></div>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:8px">
+                  <button type="button" class="btn" id="btnVolGeo">Моё местоположение</button>
+                  <button type="button" class="btn ghost" id="btnVolMapHint">Как взять из карты?</button>
+                </div>
+              </div>
+              <div>
+                <label>Радиус поиска (км)</label>
+                <input type="number" id="vol_radius" value="5" min="1" step="1" />
+                <div style="margin-top:10px">
+                  <label style="display:flex; gap:8px; align-items:center">
+                    <input type="checkbox" id="vol_verified" />
+                    Я верифицирован(а) (демо-режим, без проверки)
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:12px" class="row">
+              <div><button type="button" class="btn primary block" id="btnFindNearby">Показать ближайшие заявки</button></div>
+              <div><button type="button" class="btn block" id="btnClearVol">Сбросить</button></div>
+            </div>
+          </form>
+
+          <div style="margin-top:16px">
+            <h3 style="margin:0 0 8px 0; font-size:14px">Открытые заявки рядом</h3>
+            <div id="nearbyList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="pane-map" style="display:none">
+        <h2>Карта заявок</h2>
+        <div class="body">
+          <div id="map"></div>
+          <div class="row" style="margin-top:10px">
+            <div>
+              <button class="btn" id="btnFit">Показать все</button>
+            </div>
+            <div style="text-align:right">
+              <span class="pill"><span class="status s-open">Открыта</span></span>
+              <span class="pill"><span class="status s-assigned">Принята</span></span>
+              <span class="pill"><span class="status s-done">Выполнена</span></span>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <h3 style="margin:0 0 8px 0; font-size:14px">Все заявки</h3>
+            <div id="allList" class="list"></div>
+          </div>
+
+          <div class="footer-note">
+            Источник карт: © OpenStreetMap contributors • Плитки: © OpenStreetMap • Leaflet.
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: helper panel -->
+      <aside class="card">
+        <h2>Памятка и инструменты</h2>
+        <div class="body">
+          <div class="badges" style="margin-bottom:10px">
+            <span class="pill">Без медуслуг</span>
+            <span class="pill">Только простая помощь</span>
+            <span class="pill">Верификация волонтёров (демо)</span>
+          </div>
+          <p class="hint">
+            Это прототип. Для продакшна нужны: сервер (профили и реальная верификация), модерация контента, лог аудита, чат с маскировкой контактов, SMS/бот-уведомления, экспорт в соцслужбы.
+          </p>
+          <div class="row">
+            <button class="btn warn" id="btnExport">Экспорт заявок (JSON)</button>
+            <label class="btn" for="fileImport" style="cursor:pointer">Импорт заявок (JSON)</label>
+            <input type="file" id="fileImport" accept=".json" style="display:none">
+          </div>
+          <div style="margin-top:16px">
+            <button class="btn ghost" id="btnWipe">Очистить локальные данные</button>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+<script>
+/** ==========================
+ *  УТИЛИТЫ
+ *  ========================== */
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+function uid(){ return 'r_' + Math.random().toString(36).slice(2,10); }
+
+function toast(msg, type="info"){
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.position='fixed';
+  el.style.left='50%'; el.style.top='16px';
+  el.style.transform='translateX(-50%)';
+  el.style.background = type==="error" ? "var(--danger)" : "var(--accent-2)";
+  el.style.color = "#08111f";
+  el.style.padding="10px 14px";
+  el.style.borderRadius="12px";
+  el.style.fontWeight="700";
+  el.style.boxShadow="0 10px 24px rgba(0,0,0,.35)";
+  el.style.zIndex=9999;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2200);
+}
+
+function haversineKm(lat1, lon1, lat2, lon2){
+  function toRad(d){return d*Math.PI/180}
+  const R=6371;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c;
+}
+
+/** ==========================
+ *  ХРАНИЛИЩЕ
+ *  ========================== */
+const KEY = 'warm_contact_requests_v1';
+
+function loadStore(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return [];
+    const arr = JSON.parse(raw);
+    if(Array.isArray(arr)) return arr;
+    return [];
+  }catch(e){ console.warn(e); return [];}
+}
+
+function saveStore(items){
+  localStorage.setItem(KEY, JSON.stringify(items));
+}
+
+let STORE = loadStore();
+
+/** ==========================
+ *  КАРТА
+ *  ========================== */
+let map, markersLayer;
+
+function initMap(){
+  map = L.map('map', { zoomControl: true }).setView([43.238949, 76.889709], 12); // Алматы по умолчанию
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+  renderMarkers();
+}
+
+function markerColor(status){
+  if(status==='done') return 'green';
+  if(status==='assigned') return 'orange';
+  return 'deepskyblue';
+}
+
+function renderMarkers(){
+  if(!markersLayer) return;
+  markersLayer.clearLayers();
+  STORE.forEach(item=>{
+    if(!item.lat || !item.lng) return;
+    const icon = L.divIcon({
+      className:'custom-marker',
+      html:`<div style="
+        width:14px;height:14px;border-radius:50%;
+        background:${markerColor(item.status)};
+        border:2px solid white; box-shadow:0 0 0 3px rgba(0,0,0,.3)
+      "></div>`
+    });
+    const m = L.marker([item.lat, item.lng], { icon }).addTo(markersLayer);
+    const html = `
+      <div style="min-width:220px">
+        <div style="font-weight:800">${escapeHtml(item.typeLabel)} • <span class="status ${statusClass(item.status)}">${statusLabel(item.status)}</span></div>
+        <div style="font-size:12px; color:#cbd5e1; margin:6px 0">${escapeHtml(item.description||'')}</div>
+        <div style="font-size:12px; color:#94a3b8">Адрес: ${escapeHtml(item.address||'-')}</div>
+        <div style="font-size:12px; color:#94a3b8">Приоритет: ${escapeHtml(item.priority||'-')}</div>
+        ${item.status==='open' ? `<button data-id="${item.id}" class="popup-accept" style="margin-top:8px;padding:6px 10px;border-radius:10px;border:0;background:#60a5fa;color:#041019;font-weight:800;cursor:pointer">Принять</button>` : ''}
+      </div>
+    `;
+    m.bindPopup(html);
+  });
+}
+
+document.addEventListener('click', (e)=>{
+  if(e.target && e.target.classList.contains('popup-accept')){
+    const id = e.target.getAttribute('data-id');
+    acceptRequestAsVolunteer(id);
+  }
+});
+
+function fitAll(){
+  const pts = STORE.filter(x=>x.lat && x.lng).map(x=>[x.lat,x.lng]);
+  if(!pts.length){ toast('Нет точек на карте'); return; }
+  const bounds = L.latLngBounds(pts);
+  map.fitBounds(bounds.pad(0.2));
+}
+
+/** ==========================
+ *  РЕНДЕР СПИСКОВ
+ *  ========================== */
+function statusLabel(s){
+  return s==='done' ? 'Выполнена' : s==='assigned' ? 'Принята' : 'Открыта';
+}
+function statusClass(s){
+  return s==='done' ? 's-done' : s==='assigned' ? 's-assigned' : 's-open';
+}
+function typeLabel(type){
+  switch(type){
+    case 'shopping': return 'Сходить в магазин/аптеку';
+    case 'tech': return 'Помочь с телефоном/техникой';
+    case 'talk': return 'Поговорить/сопровождение';
+    case 'house': return 'Бытовая мелкая помощь';
+    default: return type;
+  }
+}
+
+function escapeHtml(str=''){
+  return String(str).replace(/[&<>"']/g, s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[s]));
+}
+
+function renderAllList(){
+  const root = $('#allList'); root.innerHTML='';
+  STORE
+    .slice()
+    .sort((a,b)=> (a.status>b.status?1:-1) )
+    .forEach(item=>{
+      root.appendChild(renderItemCard(item, {showActions:true}));
+    });
+}
+
+function renderNearbyList(vol){
+  const root = $('#nearbyList'); root.innerHTML='';
+  if(!vol || !vol.lat || !vol.lng){ root.innerHTML = `<div class="hint">Укажите ваше местоположение и нажмите «Показать ближайшие заявки».</div>`; return; }
+
+  const within = STORE
+    .filter(x=>x.status==='open' && x.lat && x.lng)
+    .map(x=>{
+      x._km = haversineKm(vol.lat, vol.lng, x.lat, x.lng);
+      return x;
+    })
+    .filter(x=> x._km <= (vol.radius||5))
+    .sort((a,b)=> a._km - b._km);
+
+  if(!within.length){
+    root.innerHTML = `<div class="hint">Поблизости открытых заявок не найдено в радиусе ${vol.radius} км.</div>`;
+    return;
+  }
+  within.forEach(item=>{
+    root.appendChild(renderItemCard(item, {distance:item._km, showActions:true, volunteerView:true}));
+  });
+}
+
+function renderItemCard(item, opts={}){
+  const el = document.createElement('div');
+  el.className = 'req';
+  el.innerHTML = `
+    <div style="display:flex; gap:8px; align-items:center; justify-content:space-between">
+      <div style="font-weight:800">${escapeHtml(item.typeLabel)} · ${escapeHtml(item.priority)}</div>
+      <div class="status ${statusClass(item.status)}">${statusLabel(item.status)}</div>
+    </div>
+    <div style="font-size:13px; color:#cbd5e1">${escapeHtml(item.description||'')}</div>
+    <div class="row">
+      <div>
+        <div class="hint">Заявитель: ${escapeHtml(item.name||'—')}</div>
+        <div class="hint">Адрес: ${escapeHtml(item.address||'—')}</div>
+      </div>
+      <div>
+        <div class="hint">Опубликовано: ${new Date(item.createdAt).toLocaleString()}</div>
+        ${typeof opts.distance === 'number'
+          ? `<div class="hint">~${opts.distance.toFixed(2)} км от вас</div>`
+          : ''}
+      </div>
+    </div>
+    ${item.status!=='open'
+      ? `<div class="hint">Волонтёр: ${escapeHtml(item.volunteerName||'—')} • Контакт: ${escapeHtml(item.volunteerContact||'—')}</div>`
+      : ''}
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px">
+      ${opts.showActions && item.status==='open' ? `<button class="btn" data-act="accept" data-id="${item.id}">Принять</button>`:''}
+      ${opts.showActions && item.status==='assigned' ? `<button class="btn" data-act="done" data-id="${item.id}">Отметить выполненной</button>`:''}
+      <button class="btn ghost" data-act="locate" data-id="${item.id}">Показать на карте</button>
+      <button class="btn ghost" data-act="share" data-id="${item.id}">Поделиться</button>
+      ${item.status==='open' ? `<button class="btn ghost" data-act="cancel" data-id="${item.id}">Снять заявку</button>`:''}
+    </div>
+  `;
+  el.addEventListener('click', (e)=>{
+    const b = e.target.closest('button'); if(!b) return;
+    const id = b.getAttribute('data-id');
+    const act = b.getAttribute('data-act');
+    if(act==='locate') {
+      locateOnMap(id);
+    } else if(act==='accept') {
+      acceptRequestAsVolunteer(id);
+    } else if(act==='done') {
+      markDone(id);
+    } else if(act==='share'){
+      shareItem(id);
+    } else if(act==='cancel'){
+      cancelRequest(id);
+    }
+  });
+  return el;
+}
+
+function locateOnMap(id){
+  const item = STORE.find(x=>x.id===id);
+  if(!item || !item.lat || !item.lng){ toast('Нет координат'); return; }
+  switchTab('map');
+  map.setView([item.lat,item.lng], 16);
+  // Найдём маркер и откроем попап через небольшой таймаут (когда DOM готов)
+  setTimeout(()=>{
+    renderMarkers();
+    // Leaflet не даёт простой способ открыть конкретный popup из layerGroup без ссылки.
+    // Упростим: перерисовали и просто открываем по центру.
+  }, 50);
+}
+
+/** ==========================
+ *  ЛОГИКА ФОРМ
+ *  ========================== */
+$('#btnGeo').addEventListener('click', ()=> getGeoTo('#req_lat','#req_lng','#geoHint'));
+$('#btnVolGeo').addEventListener('click', ()=> getGeoTo('#vol_lat','#vol_lng','#geoHint'));
+$('#btnPasteMapHint').addEventListener('click', ()=> alert(
+  'Подсказка: откройте Google/OSM карту, нажмите по месту правой кнопкой и скопируйте широту/долготу, затем вставьте сюда.'
+));
+$('#btnVolMapHint').addEventListener('click', ()=> alert(
+  'Подсказка: возьмите широту/долготу с карты и вставьте в поля. Это улучшит поиск ближайших заявок.'
+));
+
+function getGeoTo(latSel, lngSel, hintSel){
+  if(!('geolocation' in navigator)){ toast('Геолокация недоступна', 'error'); return; }
+  navigator.geolocation.getCurrentPosition((pos)=>{
+    const {latitude, longitude} = pos.coords;
+    $(latSel).value = latitude.toFixed(6);
+    $(lngSel).value = longitude.toFixed(6);
+    if(hintSel) $(hintSel).textContent = `Определено: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    toast('Локация сохранена');
+  }, (err)=>{
+    toast('Не удалось определить местоположение', 'error');
+    console.warn(err);
+  }, {enableHighAccuracy:true, timeout:8000, maximumAge:0});
+}
+
+$('#btnReset').addEventListener('click', ()=>{
+  $('#requestForm').reset();
+});
+$('#btnClearVol').addEventListener('click', ()=>{
+  $('#volForm').reset();
+  $('#nearbyList').innerHTML='';
+});
+
+$('#requestForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const name = $('#req_name').value.trim();
+  const contact = $('#req_contact').value.trim();
+  const type = $('#req_type').value;
+  const priority = $('#req_priority').value;
+  const description = $('#req_desc').value.trim();
+  const address = $('#req_address').value.trim();
+  const lat = parseFloat($('#req_lat').value);
+  const lng = parseFloat($('#req_lng').value);
+  const consent = $('#req_consent').checked;
+
+  if(!contact){ toast('Укажите контакт для связи', 'error'); return; }
+  if(!consent){ toast('Нужно согласие на передачу контакта одному волонтёру', 'error'); return; }
+
+  const item = {
+    id: uid(),
+    name, contact, type, typeLabel: typeLabel(type),
+    priority, description, address,
+    lat: isFinite(lat)? lat : null,
+    lng: isFinite(lng)? lng : null,
+    status: 'open',
+    createdAt: Date.now(),
+    volunteerName: null,
+    volunteerContact: null,
+    acceptedAt: null,
+    doneAt: null
+  };
+  STORE.push(item); saveStore(STORE);
+  renderAllList(); renderMarkers();
+  toast('Заявка опубликована');
+  $('#requestForm').reset();
+});
+
+function acceptRequestAsVolunteer(id){
+  const volName = $('#vol_name').value.trim();
+  const volContact = $('#vol_contact').value.trim();
+  const verified = $('#vol_verified').checked;
+
+  if(!volName || !volContact){
+    toast('Заполните имя и контакт волонтёра', 'error'); return;
+  }
+  if(!verified){
+    if(!confirm('В демо-режиме отметка «верификация» формальная. Продолжить как не верифицированный?')) return;
+  }
+  const item = STORE.find(x=>x.id===id);
+  if(!item){ toast('Заявка не найдена', 'error'); return; }
+  if(item.status!=='open'){ toast('Заявка уже недоступна', 'error'); return; }
+
+  item.status = 'assigned';
+  item.volunteerName = volName;
+  item.volunteerContact = volContact;
+  item.acceptedAt = Date.now();
+  saveStore(STORE);
+  renderAllList(); renderNearbyList(readVolunteer()); renderMarkers();
+  toast('Вы приняли заявку. Свяжитесь с заявителем непосредственно.');
+}
+
+function markDone(id){
+  const item = STORE.find(x=>x.id===id);
+  if(!item) return;
+  if(item.status!=='assigned'){ toast('Эту заявку нельзя закрыть', 'error'); return; }
+  if(!confirm('Подтвердить выполнение заявки?')) return;
+  item.status = 'done';
+  item.doneAt = Date.now();
+  saveStore(STORE);
+  renderAllList(); renderNearbyList(readVolunteer()); renderMarkers();
+  toast('Заявка отмечена выполненной');
+}
+
+function cancelRequest(id){
+  const item = STORE.find(x=>x.id===id);
+  if(!item) return;
+  if(!confirm('Снять/удалить заявку?')) return;
+  STORE = STORE.filter(x=>x.id!==id);
+  saveStore(STORE);
+  renderAllList(); renderNearbyList(readVolunteer()); renderMarkers();
+  toast('Заявка удалена');
+}
+
+function readVolunteer(){
+  const lat = parseFloat($('#vol_lat').value);
+  const lng = parseFloat($('#vol_lng').value);
+  const radius = parseFloat($('#vol_radius').value)||5;
+  return {lat:isFinite(lat)?lat:null, lng:isFinite(lng)?lng:null, radius};
+}
+
+$('#btnFindNearby').addEventListener('click', ()=>{
+  const vol = readVolunteer();
+  renderNearbyList(vol);
+  if(isFinite(vol.lat) && isFinite(vol.lng)){
+    map.setView([vol.lat, vol.lng], 13);
+    const you = L.circleMarker([vol.lat,vol.lng], {radius:7, color:'#fff', fillColor:'#fff', fillOpacity:.9});
+    you.bindTooltip('Вы здесь');
+    you.addTo(markersLayer);
+  }
+});
+
+$('#btnFit').addEventListener('click', fitAll);
+
+/** ==========================
+ *  ЭКСПОРТ / ИМПОРТ / WIPE
+ *  ========================== */
+$('#btnExport').addEventListener('click', ()=>{
+  const data = JSON.stringify(STORE, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'warm-contact-requests.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$('#fileImport').addEventListener('change', (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const arr = JSON.parse(reader.result);
+      if(!Array.isArray(arr)) throw new Error('Неверный формат');
+      STORE = arr.map(x=>({
+        id: x.id||uid(),
+        name: x.name||'',
+        contact: x.contact||'',
+        type: x.type||'shopping',
+        typeLabel: typeLabel(x.type||'shopping'),
+        priority: x.priority||'обычно',
+        description: x.description||'',
+        address: x.address||'',
+        lat: typeof x.lat==='number' ? x.lat : null,
+        lng: typeof x.lng==='number' ? x.lng : null,
+        status: ['open','assigned','done'].includes(x.status) ? x.status : 'open',
+        createdAt: x.createdAt||Date.now(),
+        volunteerName: x.volunteerName||null,
+        volunteerContact: x.volunteerContact||null,
+        acceptedAt: x.acceptedAt||null,
+        doneAt: x.doneAt||null
+      }));
+      saveStore(STORE);
+      renderAllList(); renderMarkers();
+      toast('Импорт завершён');
+    }catch(err){
+      console.error(err);
+      toast('Ошибка импорта', 'error');
+    }
+  };
+  reader.readAsText(file);
+});
+
+$('#btnWipe').addEventListener('click', ()=>{
+  if(!confirm('Удалить все локальные данные (заявки)?')) return;
+  STORE = []; saveStore(STORE);
+  renderAllList(); renderNearbyList(readVolunteer()); renderMarkers();
+  toast('Данные очищены');
+});
+
+/** ==========================
+ *  ТАБЫ
+ *  ========================== */
+const panes = {
+  senior: $('#pane-senior'),
+  volunteer: $('#pane-volunteer'),
+  map: $('#pane-map')
+};
+$$('.tab').forEach(t=>{
+  t.addEventListener('click', ()=> switchTab(t.getAttribute('data-tab')));
+});
+function switchTab(key){
+  $$('.tab').forEach(t=> t.classList.toggle('active', t.getAttribute('data-tab')===key));
+  for(const k in panes) panes[k].style.display = (k===key ? '' : 'none');
+  if(key==='map'){ setTimeout(()=>{ map.invalidateSize(); }, 100); }
+}
+
+/** ==========================
+ *  СТАРТ
+ *  ========================== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  initMap();
+  renderAllList();
+});
+</script>
+</body>
+</html>
